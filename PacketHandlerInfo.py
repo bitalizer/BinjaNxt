@@ -13,6 +13,7 @@ If not, see <https://www.gnu.org/licenses/>.
 """
 from typing import Optional
 
+
 class PacketHandlerInfo:
     done: bool = False
     name: str = ""
@@ -281,5 +282,9 @@ server_packet_names: list[str] = [
     "SOUND_AREA",
     "____WAT____",
     "LOC_PREFETCH",
-    "TEXT_COORD"
+    "TEXT_COORD",
+    "____WAT1____",
+    "____WAT2____",
+    "____WAT3____",
+    "____WAT4____"
 ]

@@ -21,9 +21,9 @@ from binaryninja.log import log_error, log_warn, log_info
 from BinjaNxt.Isaac import Isaac
 
 
-# from NxtAnalysisData import NxtAnalysisData
-# from PacketHandler import PacketHandlers
-# from NxtUtils import *
+from BinjaNxt.NxtAnalysisData import NxtAnalysisData
+from BinjaNxt.PacketHandler import PacketHandlers
+from BinjaNxt.NxtUtils import *
 
 
 class Nxt:
@@ -44,13 +44,14 @@ class Nxt:
 
         self.found_data.types.create_types(bv)
         if not self.refactor_app_init(bv):
-            log_error('Failed to refactor jag::App::MainInit')
+            print('Failed to refactor jag::App::MainInit')
         if not self.refactor_connection_manager(bv):
-            log_error('Failed to refactor jag::ConnectionManager')
+            print('Failed to refactor jag::ConnectionManager')
         if not self.packet_handlers.run(bv, self.found_data.connection_manager_ctor_addr):
-            log_error('Failed to refactor packets')
+            print('Failed to refactor packets')
         self.client_tcp_message.run(bv)
-        if not self.isaac_cipher.run(bv): log_error("Failed to refactor the Isaac Cipher")
+        if not self.isaac_cipher.run(bv):
+            print("Failed to refactor the Isaac Cipher")
         self.found_data.print_info()
         return True
 
@@ -67,9 +68,11 @@ class Nxt:
         if self.refactor_static_client_ptr(bv):
             logmsg: str
             if len(self.found_data.static_client_ptrs) == 1:
-                logmsg = 'Found jag::Client* jag::s_pClient @ {:#x}'.format(self.found_data.static_client_ptrs[0])
+                logmsg = 'Found jag::Client* jag::s_pClient @ {:#x}'.format(
+                    self.found_data.static_client_ptrs[0])
                 bv.define_data_var(self.found_data.static_client_ptrs[0],
-                                   Type.pointer(bv.arch, self.found_data.types.client),
+                                   Type.pointer(
+                                       bv.arch, self.found_data.types.client),
                                    'jag::s_pClient')
             else:
                 logmsg = 'Found multiple jag::Client* jag::s_pClient'
@@ -80,10 +83,11 @@ class Nxt:
                         name += str(idx)
 
                     bv.define_data_var(self.found_data.static_client_ptrs[0],
-                                       Type.pointer(bv.arch, self.found_data.types.client),
+                                       Type.pointer(
+                                           bv.arch, self.found_data.types.client),
                                        name)
 
-            log_info(logmsg)
+            print(logmsg)
 
         return True
 
@@ -100,13 +104,13 @@ class Nxt:
         set_error_mode_addr = set_error_modes[-1].address
         references = list(bv.get_code_refs(set_error_mode_addr))
         if len(references) > 1:
-            log_error('SetErrorMode is referenced multiple times!')
+            print('SetErrorMode is referenced multiple times!')
             for ref in references:
-                log_error('    at {:#x}'.format(ref.address))
+                print('    at {:#x}'.format(ref.address))
             return None
 
         target_func = references[0].function
-        log_info('found jag::App::MainInit at {:#x}'.format(target_func.start))
+        print('found jag::App::MainInit at {:#x}'.format(target_func.start))
         return target_func
 
     def find_alloc_and_client_ctor(self, bv: BinaryView, main_init: Function) -> bool:
@@ -135,24 +139,29 @@ class Nxt:
                     continue
 
                 client_struct_size = llil.get_reg_value(RCX).value  # num_bytes
-                client_struct_alignment = llil.get_reg_value(RDX).value  # alignment
+                client_struct_alignment = llil.get_reg_value(
+                    RDX).value  # alignment
                 #                      0x633d0    size in version 921-4
                 client_expected_size = 0x633e0  # size as of jag::Client version 922-4
                 if client_struct_size != client_expected_size:
                     size_diff = abs(client_struct_size - client_expected_size)
                     if size_diff < 0x10:
-                        log_warn((
-                                     'Client structure size deviates more than 16 bytes from expected.'
-                                     'got {:#x} but expected within 16 bytes of {:#x}'
-                                 ).format(client_struct_size, client_expected_size))
+                        print((
+                            'Client structure size deviates more than 16 bytes from expected.'
+                            'got {:#x} but expected within 16 bytes of {:#x}'
+                        ).format(client_struct_size, client_expected_size))
 
                 found_alloc = True
                 checked_alloc = bv.get_function_at(dest_addr)
                 self.found_data.checked_alloc_addr = checked_alloc.start
-                change_func_name(checked_alloc, '{}::CheckedAlloc'.format(self.found_data.types.heap_interface_name))
-                change_ret_type(checked_alloc, Type.pointer(bv.arch, Type.void()))
-                change_var(checked_alloc.parameter_vars[0], 'num_bytes', Type.int(4))
-                change_var(checked_alloc.parameter_vars[1], 'alignment', Type.int(4))
+                change_func_name(checked_alloc, '{}::CheckedAlloc'.format(
+                    self.found_data.types.heap_interface_name))
+                change_ret_type(
+                    checked_alloc, Type.pointer(bv.arch, Type.void()))
+                change_var(
+                    checked_alloc.parameter_vars[0], 'num_bytes', Type.int(4))
+                change_var(
+                    checked_alloc.parameter_vars[1], 'alignment', Type.int(4))
 
             else:
                 with StructureBuilder.builder(bv, QualifiedName(self.found_data.types.client_name)) as client_builder:
@@ -160,11 +169,13 @@ class Nxt:
                     client_builder.alignment = client_struct_alignment
                     client_builder.width = client_struct_size
 
-                self.found_data.types.client = bv.get_type_by_name(self.found_data.types.client_name)
+                self.found_data.types.client = bv.get_type_by_name(
+                    self.found_data.types.client_name)
 
                 client_ctor = bv.get_function_at(dest_addr)
                 self.found_data.client_ctor_addr = client_ctor.start
-                change_func_name(client_ctor, '{}::ctor'.format(self.found_data.types.client_name))
+                change_func_name(client_ctor, '{}::ctor'.format(
+                    self.found_data.types.client_name))
                 change_var(client_ctor.parameter_vars[0], 'pClient',
                            Type.pointer(bv.arch, self.found_data.types.client))
                 break
@@ -175,7 +186,7 @@ class Nxt:
             vtable_assign_insn: Optional[HighLevelILAssign] = None
             for idx, insn in enumerate(list(client_ctor.hlil.instructions)):
                 if idx >= 4:
-                    log_error('Failed to locate vtable of jag::Client')
+                    print('Failed to locate vtable of jag::Client')
                     break
 
                 if isinstance(insn, HighLevelILAssign):
@@ -190,11 +201,13 @@ class Nxt:
                                     vtable_assign_insn = ass_insn
                 elif vtable_assign_insn is not None:
                     if isinstance(vtable_assign_insn.src.value, Undetermined):
-                        log_error('Value of jag::Client::vtable is Undetermined')
+                        print('Value of jag::Client::vtable is Undetermined')
                     else:
                         vtable_addr = vtable_assign_insn.src.value.value
-                        change_comment(bv, vtable_addr, 'start vtable jag::Client')
-                        log_info('Found jag::Client::vtable @ {:#x}'.format(vtable_addr))
+                        change_comment(bv, vtable_addr,
+                                       'start vtable jag::Client')
+                        print(
+                            'Found jag::Client::vtable @ {:#x}'.format(vtable_addr))
                     break
 
         return found_alloc and self.found_data.types.client is not None
@@ -207,13 +220,15 @@ class Nxt:
         """
         ctor_refs = list(bv.get_code_refs(self.found_data.client_ctor_addr))
         if len(ctor_refs) != 1:
-            log_error('Expected 1 ref to jag::Client::ctor but found {}'.format(len(ctor_refs)))
+            print('Expected 1 ref to jag::Client::ctor but found {}'.format(
+                len(ctor_refs)))
             return False
 
         call_site_addr = ctor_refs[0].address
         containing_funcs = bv.get_functions_containing(call_site_addr)
         if len(containing_funcs) != 1:
-            log_error('Expected 1 func containing call to jag::Client::ctor but found {}'.format(len(containing_funcs)))
+            print('Expected 1 func containing call to jag::Client::ctor but found {}'.format(
+                len(containing_funcs)))
             return False
 
         func = containing_funcs[0]
@@ -222,7 +237,7 @@ class Nxt:
         start_idx = find_instruction_index(fun_insns, call_insn) + 1
         if start_idx <= 0:
             # shouldn't actually happen, but you never know
-            log_error('Couldn\'t find call instruction in function it\'s supposed to be in')
+            print('Couldn\'t find call instruction in function it\'s supposed to be in')
             return False
 
         # the return value of jag::Client::ctor is the client address.
@@ -283,11 +298,12 @@ class Nxt:
 
         num_ptrs = len(current_data_locations)
         if num_ptrs == 0:
-            log_error("Unable to locate jag::Client* s_pClient")
+            print("Unable to locate jag::Client* s_pClient")
             return False
         elif num_ptrs > 1:
             # as of 922-4 there should only be 1 left over data location. warn if there are more
-            log_warn('Found multiple static data locations for jag::Client* s_pClient. Is this correct?')
+            print(
+                'Found multiple static data locations for jag::Client* s_pClient. Is this correct?')
 
         self.found_data.static_client_ptrs = current_data_locations
         return True
@@ -298,7 +314,7 @@ class Nxt:
         There are only a few functions that use this value
         """
 
-        log_info('Searching for jag::ConnectionManager::ctor this will take awhile...')
+        print('Searching for jag::ConnectionManager::ctor this will take awhile...')
         candidates: Dict[LowLevelILInstruction, Function] = {}
         for func in bv.functions:
             candidate_ins: Optional[LowLevelILInstruction] = None
@@ -321,21 +337,26 @@ class Nxt:
                     for op in value_expr.operands:
                         if isinstance(op, LowLevelILConst):
                             const: LowLevelILConst = op
-                            if const.constant == 20000:
+
+                            if const.constant == 0x4e20:
                                 candidate_ins = insn
                                 is_candidate = True
-                                # print(str(candidate_ins) + " @ " + hex(candidate_ins.address))
+                                print(str(candidate_ins) + " @ " +
+                                      hex(candidate_ins.address))
                                 break
                 else:
+
                     distance = insn.address - candidate_ins.address
-                    if distance > 25:
-                        # print('    discard at ' + str(distance))
+
+                    # Was 25, in 930 55 now
+                    if distance > 55:
+                        print('    Candidate discard at ' + str(distance))
                         break
 
                     if insn.operation != LowLevelILOperation.LLIL_RET:
                         continue
 
-                    # print('    ' + str(distance))
+                    print(' Candidade found, distance ' + str(distance))
                     is_super_candidate = True
                     break
 
@@ -344,7 +365,7 @@ class Nxt:
                 break
 
         if len(candidates) != 1:
-            log_error(
+            print(
                 'Failed to isolate jag::ConnectionManager::ctor.\n    Remaining candidates: {}'.format(candidates))
             return False
 
@@ -353,26 +374,30 @@ class Nxt:
         insn_using_current_time, ctor = list(candidates.items())[0]
         ctor_instructions = list(ctor.llil.instructions)
 
-        current_time_addr = self.find_current_time_addr(insn_using_current_time, ctor_instructions)
+        current_time_addr = self.find_current_time_addr(
+            insn_using_current_time, ctor_instructions)
         if current_time_addr is None:
-            log_error('Failed to find address of jag::FrameTime::m_CurrentTimeMS')
+            print('Failed to find address of jag::FrameTime::m_CurrentTimeMS')
         else:
             self.found_data.current_time_ms_addr = current_time_addr
             bv.define_user_data_var(self.found_data.current_time_ms_addr, Type.int(8, False),
                                     self.found_data.types.current_time_ms_name)
 
-        log_info('Determining size of jag::ConnectionManager')
+        print('Determining size of jag::ConnectionManager')
         ctor_refs = list(bv.get_code_refs(ctor.start))
         if len(ctor_refs) != 1:
-            log_error('Expected 1 xref to jag::ConnectionManager::ctor but got {}'.format(len(ctor_refs)))
+            print('Expected 1 xref to jag::ConnectionManager::ctor but got {}'.format(
+                len(ctor_refs)))
             return False
 
         allocation = find_allocation_from_ctor_call(bv,
-                                                    list(ctor_refs[0].function.llil_instructions),
-                                                    ctor_refs[0].function.get_llil_at(ctor_refs[0].address),
+                                                    list(
+                                                        ctor_refs[0].function.llil_instructions),
+                                                    ctor_refs[0].function.get_llil_at(
+                                                        ctor_refs[0].address),
                                                     self.found_data.checked_alloc_addr)
         if allocation is None:
-            log_error('Failed to determine size of jag::ConnectionManager')
+            print('Failed to determine size of jag::ConnectionManager')
             return False
 
         with StructureBuilder.builder(bv, QualifiedName(self.found_data.types.conn_mgr_name)) as builder:
@@ -380,14 +405,19 @@ class Nxt:
             builder.width = allocation.size
             builder.alignment = allocation.alignment
 
-        self.found_data.types.conn_mgr = bv.get_type_by_name(self.found_data.types.conn_mgr_name)
+        self.found_data.types.conn_mgr = bv.get_type_by_name(
+            self.found_data.types.conn_mgr_name)
 
         self.found_data.connection_manager_ctor_addr = ctor.start
-        log_info('Found jag::ConnectionManager::ctor at {:#x}'.format(self.found_data.connection_manager_ctor_addr))
+        print('Found jag::ConnectionManager::ctor at {:#x}'.format(
+            self.found_data.connection_manager_ctor_addr))
 
-        change_func_name(ctor, '{}::ctor'.format(self.found_data.types.conn_mgr_name))
-        change_var_type(ctor.parameter_vars[0], Type.pointer(bv.arch, self.found_data.types.conn_mgr))
-        change_var(ctor.parameter_vars[1], "client", Type.pointer(bv.arch, self.found_data.types.client))
+        change_func_name(ctor, '{}::ctor'.format(
+            self.found_data.types.conn_mgr_name))
+        change_var_type(ctor.parameter_vars[0], Type.pointer(
+            bv.arch, self.found_data.types.conn_mgr))
+        change_var(ctor.parameter_vars[1], "client", Type.pointer(
+            bv.arch, self.found_data.types.client))
         return True
 
     def find_current_time_addr(self,
@@ -409,11 +439,12 @@ class Nxt:
                 reg_name = reg.src.name
 
         if reg_name is None:
-            log_error(
+            print(
                 'jag::FrameTime::m_CurrentTimeMS doesn\'t appear to be coming from a register. Script needs updating!')
             return None
 
-        idx = find_instruction_index(ctor_instructions, insn_using_current_time)
+        idx = find_instruction_index(
+            ctor_instructions, insn_using_current_time)
         while idx > 0:
             idx -= 1  # decrementing at the start because we are starting at insn_using_current_time
             insn = ctor_instructions[idx]
@@ -432,7 +463,7 @@ class Nxt:
                     ptr: LowLevelILConstPtr = operand
                     return ptr.constant
 
-            log_error(
+            print(
                 'jag::FrameTime::m_CurrentTimeMS doesn\'t appear to be coming from a static address. Script needs updating!')
             break
 

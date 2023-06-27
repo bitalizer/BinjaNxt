@@ -16,9 +16,6 @@ from BinjaNxt.JagTypes import JagTypes
 from BinjaNxt.PacketHandlerInfo import PacketHandlerInfo
 from BinjaNxt.ClientProtInfo import ClientProtInfo
 
-#from JagTypes import JagTypes
-#from PacketHandlerInfo import PacketHandlerInfo
-
 
 class NxtAnalysisData:
     types: JagTypes = JagTypes()
@@ -62,4 +59,3 @@ class NxtAnalysisData:
         print('ClientProtSizes')
         for prot in self.clientprots:
             print('{' + '{}, {}'.format(prot.opcode, prot.size) + '},\n')
-

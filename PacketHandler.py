@@ -22,32 +22,37 @@ from BinjaNxt.NxtUtils import *
 from BinjaNxt.PacketHandlerInfo import PacketHandlerInfo, server_packet_names
 
 
-#from NxtAnalysisData import NxtAnalysisData
-#from JagTypes import *
-#from NxtUtils import *
-#from PacketHandlerInfo import *
+# from NxtAnalysisData import NxtAnalysisData
+# from JagTypes import *
+# from NxtUtils import *
+# from PacketHandlerInfo import *
 
 
 class PacketHandlers:
     found_data: NxtAnalysisData
 
-    __EXPECTED_NUM_SERVER_HANDLERS: int = 195
+    __EXPECTED_NUM_SERVER_HANDLERS: int = 200
 
     __server_packet_name_offs = 0
 
     def __init__(self, found_data: NxtAnalysisData):
         self.found_data = found_data
-        self.found_data.packet_handlers = [None] * self.__EXPECTED_NUM_SERVER_HANDLERS
+        self.found_data.packet_handlers = [
+            None] * self.__EXPECTED_NUM_SERVER_HANDLERS
 
     def run(self, bv: BinaryView, connection_manager_ctor_addr: int) -> bool:
-        packet_handler_ctor = self.find_packet_handler_ctor_and_register(bv, connection_manager_ctor_addr)
+        packet_handler_ctor = self.find_packet_handler_ctor_and_register(
+            bv, connection_manager_ctor_addr)
         if packet_handler_ctor is None:
             return False
 
-        log_info('Found RegisterPacketHandler @ ' + hex(self.found_data.register_packet_handler_addr))
-        change_func_name(bv.get_function_at(self.found_data.register_packet_handler_addr), 'jag::RegisterPacketHandler')
+        log_info('Found RegisterPacketHandler @ ' +
+                 hex(self.found_data.register_packet_handler_addr))
+        change_func_name(bv.get_function_at(
+            self.found_data.register_packet_handler_addr), 'jag::RegisterPacketHandler')
 
-        log_info('Found jag::PacketHandler::ctor @ ' + packet_handler_ctor.name)
+        log_info('Found jag::PacketHandler::ctor @ ' +
+                 packet_handler_ctor.name)
         change_func_name(packet_handler_ctor, 'jag::PacketHandler::ctor')
 
         if not self.__initialize_server_packet_infos(bv, packet_handler_ctor):
@@ -62,9 +67,11 @@ class PacketHandlers:
             if handler.name == "":
                 continue
 
-            qualified_handler_name, clean_name = self.get_qualified_handler_name(handler.name)
+            qualified_handler_name, clean_name = self.get_qualified_handler_name(
+                handler.name)
             handler_ctor = bv.get_function_at(handler.ctor)
-            change_func_name(handler_ctor, '{}::ctor'.format(qualified_handler_name))
+            change_func_name(handler_ctor, '{}::ctor'.format(
+                qualified_handler_name))
 
             bv.define_data_var(handler.addr - 0x8,
                                self.found_data.types.server_prot,
@@ -75,16 +82,20 @@ class PacketHandlers:
                                qualified_handler_name)
 
             if handler.vtable is not None:
-                change_comment(bv, handler.vtable, 'start vtable {}'.format(qualified_handler_name))
+                change_comment(bv, handler.vtable, 'start vtable {}'.format(
+                    qualified_handler_name))
 
-                handle_packet_vtable_addr = handler.vtable + (bv.arch.address_size * 2)
+                handle_packet_vtable_addr = handler.vtable + \
+                    (bv.arch.address_size * 2)
                 handle_packet_addr: Optional[int]
                 try:
-                    handle_packet_addr = bv.read_int(handle_packet_vtable_addr, bv.arch.address_size, False)
+                    handle_packet_addr = bv.read_int(
+                        handle_packet_vtable_addr, bv.arch.address_size, False)
                 except ValueError:
                     # TODO: As of version 922-4 there is one unhandled case with IfSetPlayerHeadIgnoreWorn
                     # See: corresponding todo in __find_packet_handler_vtable
-                    log_error('vtable issue with ' + handler.name + ' - ' + str(handler.opcode) + ', ' + hex(handler.vtable))
+                    log_error('vtable issue with ' + handler.name + ' - ' +
+                              str(handler.opcode) + ', ' + hex(handler.vtable))
                     handler.vtable = None
                     handle_packet_addr = None
 
@@ -94,13 +105,14 @@ class PacketHandlers:
                         # TODO: Can I create a function? what is a "user" function?
                         print('no func?')
                     else:
-                        change_func_name(handle_packet_func, '{}::HandlePacket'.format(qualified_handler_name))
+                        change_func_name(handle_packet_func, '{}::HandlePacket'.format(
+                            qualified_handler_name))
 
                         if len(handle_packet_func.parameter_vars) >= 2:
-                            change_var(handle_packet_func.parameter_vars[1], 'pPacket', Type.pointer(bv.arch, self.found_data.types.packet))
-        
-        return True
+                            change_var(handle_packet_func.parameter_vars[1], 'pPacket', Type.pointer(
+                                bv.arch, self.found_data.types.packet))
 
+        return True
 
     def get_qualified_handler_name(self, handler_name: str) -> (str, str):
         """
@@ -146,10 +158,12 @@ class PacketHandlers:
                 for i in range(0, (opcode - len(self.found_data.packet_handlers))):
                     self.found_data.packet_handlers.append(None)
 
-            self.found_data.packet_handlers[opcode] = PacketHandlerInfo(opcode, size, addr, ctor.start)
+            self.found_data.packet_handlers[opcode] = PacketHandlerInfo(
+                opcode, size, addr, ctor.start)
             num_valid += 1
 
-        log_info('Found {} valid packet handlers of {} possible'.format(num_valid, len(ctor_refs)))
+        print('Found {} valid packet handlers of {} possible'.format(
+            num_valid, len(ctor_refs)))
         if num_valid != len(ctor_refs):
             return False
 
@@ -158,10 +172,12 @@ class PacketHandlers:
     def __initialize_server_packet_handler_names(self, bv: BinaryView,
                                                  connection_manager_ctor_addr: Optional[int]) -> bool:
         if connection_manager_ctor_addr is None:
-            print('Address of jag::ConnectionManager::ctor is required to name packet handlers')
+            print(
+                'Address of jag::ConnectionManager::ctor is required to name packet handlers')
             return False
 
-        connection_manager_ctor = bv.get_function_at(connection_manager_ctor_addr)
+        connection_manager_ctor = bv.get_function_at(
+            connection_manager_ctor_addr)
         visited_func_addrs: list[int] = []
         call_num: int = 0
         try:
@@ -183,7 +199,7 @@ class PacketHandlers:
 
         except Exception as e:
             print("Fatal error")
-            traceback.print_exception(e)
+            traceback.print_exception(type(e), e, e.__traceback__)
             return False
 
         return True
@@ -226,14 +242,15 @@ class PacketHandlers:
                 if handler is None:
                     print('Unknown PacketHandler addr=' + hex(addr) + ' addr_original=' + hex(
                         addr_original) + ' - insn = '
-                          + str(call_insn) + ' @ ' + hex(call_insn.address))
+                        + str(call_insn) + ' @ ' + hex(call_insn.address))
                     return
 
             if handler.done:
                 return
 
             # TODO: opcode 126 IF_SETPLAYERHEAD_IGNOREWORN isn't even making it here
-            packet_handler_vtable = self.__find_packet_handler_vtable(call_insn, containing_func, rcx)
+            packet_handler_vtable = self.__find_packet_handler_vtable(
+                call_insn, containing_func, rcx)
 
             handler.done = True
             handler.name = server_packet_names[self.__server_packet_name_offs]
@@ -258,7 +275,8 @@ class PacketHandlers:
                 if fun is None:
                     continue
 
-                self.__find_packet_handler_registrations_recurse(bv, called_func, insn, fun, visited_func_addrs, call_insn)
+                self.__find_packet_handler_registrations_recurse(
+                    bv, called_func, insn, fun, visited_func_addrs, call_insn)
 
         return
 
@@ -323,7 +341,8 @@ class PacketHandlers:
                                         if isinstance(vtable_addr, Undetermined):
                                             print('!! {}'.format(store_insn))
                                     else:
-                                        print('Unknown src for PacketHandler vtable')
+                                        print(
+                                            'Unknown src for PacketHandler vtable')
                                         print("[{}] - [{} ({})] - [{} ({})] src {} ({}) {}"
                                               .format(fun_insn,
                                                       add_insn.left,
@@ -351,7 +370,8 @@ class PacketHandlers:
                                               bv: BinaryView,
                                               connection_manager_ctor_addr: int) -> Optional[Function]:
         print('Searching for jag::PacketHandler::ctor')
-        connection_manager_ctor = bv.get_function_at(connection_manager_ctor_addr)
+        connection_manager_ctor = bv.get_function_at(
+            connection_manager_ctor_addr)
 
         visited_func_addrs: list[int] = []
         call_num: int = 0
@@ -369,7 +389,8 @@ class PacketHandlers:
                 # print(insn)
                 ctor = self.__find_packet_handler_base_ctor_recurse(bv,
                                                                     insn,
-                                                                    bv.get_function_at(dest_addr),
+                                                                    bv.get_function_at(
+                                                                        dest_addr),
                                                                     visited_func_addrs)
                 if ctor is not None:
                     return ctor
@@ -387,7 +408,8 @@ class PacketHandlers:
                                                 visited_func_addrs: list[int]) -> Optional[Function]:
         if self.found_data.register_packet_handler_addr is None and len(called_func.callers) > 200:
             self.found_data.register_packet_handler_addr = called_func.start
-            visited_func_addrs.remove(self.found_data.register_packet_handler_addr)
+            visited_func_addrs.remove(
+                self.found_data.register_packet_handler_addr)
 
             rdx = call_insn.get_reg_value(RDX)
             if isinstance(rdx, Undetermined):
@@ -398,7 +420,8 @@ class PacketHandlers:
             vtable_addr = addr - 8
             vtable_refs = list(bv.get_code_refs(vtable_addr))
             if len(vtable_refs) <= 1:
-                raise Exception("Expected more than 1 initial vtable reference but got " + str(len(vtable_refs)))
+                raise Exception(
+                    "Expected more than 1 initial vtable reference but got " + str(len(vtable_refs)))
 
             # we want to filter the vtable refs down to just the call
             # to the base ctor that takes the vtable as a parameter
@@ -407,11 +430,14 @@ class PacketHandlers:
                     vtable_refs.remove(r)
 
             if len(vtable_refs) != 1:
-                raise Exception("Expected 1 reference to vtable of PacketHandler but got " + str(len(vtable_refs)))
+                raise Exception(
+                    "Expected 1 reference to vtable of PacketHandler but got " + str(len(vtable_refs)))
 
-            the_insn = vtable_refs[0].function.get_llil_at(vtable_refs[0].address)
+            the_insn = vtable_refs[0].function.get_llil_at(
+                vtable_refs[0].address)
             if not isinstance(the_insn, LowLevelILCall):
-                raise Exception("Unexpected instruction type! {} - {}".format(the_insn, type(the_insn)))
+                raise Exception(
+                    "Unexpected instruction type! {} - {}".format(the_insn, type(the_insn)))
 
             base_ctor_call_insn: LowLevelILCall = the_insn
             if isinstance(base_ctor_call_insn.dest.value, Undetermined):
@@ -435,7 +461,8 @@ class PacketHandlers:
 
                 res = self.__find_packet_handler_base_ctor_recurse(bv,
                                                                    insn,
-                                                                   bv.get_function_at(dest_addr),
+                                                                   bv.get_function_at(
+                                                                       dest_addr),
                                                                    visited_func_addrs)
                 if res is not None:
                     return res

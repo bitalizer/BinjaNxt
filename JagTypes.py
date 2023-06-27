@@ -45,7 +45,8 @@ class JagTypes:
 
     def create_types(self, bv: BinaryView):
         t_isaac = Type.structure(members=[
-            (Type.int(4, False), 'valuesRemaining'),  # This may actually be value used, investigate.
+            # This may actually be value used, investigate.
+            (Type.int(4, False), 'valuesRemaining'),
             (Type.array(Type.int(4, False), 256), 'results'),
             (Type.array(Type.int(4, False), 256), 'mm'),
             # One of these is the counter, another is the accumulator
@@ -78,7 +79,8 @@ class JagTypes:
             (Type.pointer(bv.arch, Type.void()), 'vtable')
         ], packed=True).mutable_copy()
         t_packethandler_builder.width = 0x48
-        bv.define_user_type(self.packet_handler_name, t_packethandler_builder.immutable_copy())
+        bv.define_user_type(self.packet_handler_name,
+                            t_packethandler_builder.immutable_copy())
         self.packet_handler = bv.get_type_by_name(self.packet_handler_name)
 
         t_packet = Type.structure(members=[

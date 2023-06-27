@@ -45,8 +45,10 @@ class Isaac:
         if isaac_init_addr is None:
             return False
         self.found_data.isaac_init_addr = isaac_init_addr
-        log_info('Found jag::Isaac::Init @ ' + hex(self.found_data.isaac_init_addr))
-        change_func_name(bv.get_function_at(self.found_data.isaac_init_addr), 'jag::Isaac::Init')
+        log_info('Found jag::Isaac::Init @ ' +
+                 hex(self.found_data.isaac_init_addr))
+        change_func_name(bv.get_function_at(
+            self.found_data.isaac_init_addr), 'jag::Isaac::Init')
         isaac_generate_addr = None
         for insn in bv.get_function_at(isaac_init_addr).llil.instructions:
             if not isinstance(insn, LowLevelILCall):
@@ -60,6 +62,8 @@ class Isaac:
         if isaac_generate_addr is None:
             return False
         self.found_data.isaac_generate_addr = isaac_generate_addr
-        log_info('Found jag::Isaac::Generate @ ' + hex(self.found_data.isaac_generate_addr))
-        change_func_name(bv.get_function_at(self.found_data.isaac_generate_addr), 'jag::Isaac::Generate')
+        log_info('Found jag::Isaac::Generate @ ' +
+                 hex(self.found_data.isaac_generate_addr))
+        change_func_name(bv.get_function_at(
+            self.found_data.isaac_generate_addr), 'jag::Isaac::Generate')
         return True

@@ -47,7 +47,8 @@ def int32(x: int):
 
 def ensure_func_analyzed(func: Function) -> bool:
     if func.analysis_skipped:
-        log_warn('Function {} was not analyzed. Reason {}'.format(func.name, func.analysis_skip_reason))
+        log_warn('Function {} was not analyzed. Reason {}'.format(
+            func.name, func.analysis_skip_reason))
         return False
     return True
 
@@ -145,7 +146,8 @@ def find_allocation_from_ctor_call(bv: BinaryView,
     @return: The AllocationDetails passed to the invokation of jag::HeapInterface::CheckedAlloc to allocate the object
     whose constructor is being called by calling_instruction or None
     """
-    idx = find_instruction_index(calling_function_instructions, calling_instruction)
+    idx = find_instruction_index(
+        calling_function_instructions, calling_instruction)
     while idx > 0:
         idx -= 1
         insn = calling_function_instructions[idx]
